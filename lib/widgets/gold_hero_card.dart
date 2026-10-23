@@ -6,13 +6,13 @@ import '../utils/formatters.dart';
 class GoldHeroCard extends StatelessWidget {
   final GoldMonthSummary summary;
   final bool isPavan;
-  final VoidCallback onToggleUnit;
+  final ValueChanged<bool> onUnitChanged;
 
   const GoldHeroCard({
     super.key,
     required this.summary,
     required this.isPavan,
-    required this.onToggleUnit,
+    required this.onUnitChanged,
   });
 
   @override
@@ -50,55 +50,65 @@ class GoldHeroCard extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top Row: Tag + Unit Selector
+          // Top Row: Tag + Unit Selector Tabs
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              // Hallmark Tag
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
                   color: AppTheme.goldPrimary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppTheme.goldPrimary.withValues(alpha: 0.3)),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.goldPrimary.withValues(alpha: 0.28)),
                 ),
-                child: Row(
+                child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.verified, size: 14, color: AppTheme.goldAccent),
-                    const SizedBox(width: 5),
+                    Icon(Icons.verified, size: 13, color: AppTheme.goldAccent),
+                    SizedBox(width: 5),
                     Text(
-                      'KERALA • 22K (916 GOLD)',
+                      '22K (916 GOLD)',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
+                        letterSpacing: 0.6,
                         color: AppTheme.goldLight,
                       ),
                     ),
                   ],
                 ),
               ),
-              // Unit Toggle Switch
-              GestureDetector(
-                onTap: onToggleUnit,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surfaceElevated,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppTheme.surfaceLight),
-                  ),
-                  child: Row(
-                    children: [
-                      _buildUnitChip('1 Pavan', isPavan),
-                      const SizedBox(width: 4),
-                      _buildUnitChip('1 Gram', !isPavan),
-                    ],
-                  ),
+
+              const SizedBox(width: 8),
+
+              // Unit Segmented Tabs (1 Pavan | 1 Gram)
+              Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceElevated,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppTheme.surfaceLight.withValues(alpha: 0.6)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildUnitTab(
+                      label: '1 Pavan',
+                      isSelected: isPavan,
+                      onTap: () => onUnitChanged(true),
+                    ),
+                    const SizedBox(width: 2),
+                    _buildUnitTab(
+                      label: '1 Gram',
+                      isSelected: !isPavan,
+                      onTap: () => onUnitChanged(false),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -119,32 +129,17 @@ class GoldHeroCard extends StatelessWidget {
           const SizedBox(height: 6),
 
           // Hero Price Display
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              ShaderMask(
-                shaderCallback: (bounds) => AppTheme.goldGradient.createShader(bounds),
-                child: Text(
-                  CurrencyFormatter.format(currentPrice, decimal: !isPavan),
-                  style: const TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    letterSpacing: -1,
-                  ),
-                ),
+          ShaderMask(
+            shaderCallback: (bounds) => AppTheme.goldGradient.createShader(bounds),
+            child: Text(
+              CurrencyFormatter.format(currentPrice, decimal: !isPavan),
+              style: const TextStyle(
+                fontSize: 42,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: -1,
               ),
-              const SizedBox(width: 8),
-              Text(
-                isPavan ? '/ 8 grams (1 Pavan)' : '/ 1 gram',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-            ],
+            ),
           ),
 
           const SizedBox(height: 14),
@@ -206,7 +201,7 @@ class GoldHeroCard extends StatelessWidget {
                           : Icons.trending_up_rounded,
                       size: 16,
                       color: summary.trend.toLowerCase() == 'downward'
-                          ? AppTheme.greenRate // Drop in gold rate is favorable for buyers
+                          ? AppTheme.greenRate
                           : AppTheme.goldAccent,
                     ),
                     const SizedBox(width: 6),
@@ -279,19 +274,37 @@ class GoldHeroCard extends StatelessWidget {
     );
   }
 
-  Widget _buildUnitChip(String label, bool isSelected) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: isSelected ? AppTheme.goldPrimary : Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-          color: isSelected ? Colors.black : AppTheme.textSecondary,
+  Widget _buildUnitTab({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.goldPrimary : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppTheme.goldPrimary.withValues(alpha: 0.25),
+                    blurRadius: 6,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+            color: isSelected ? Colors.black : AppTheme.textSecondary,
+          ),
         ),
       ),
     );

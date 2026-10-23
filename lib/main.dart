@@ -161,9 +161,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         GoldHeroCard(
                           summary: summary,
                           isPavan: _isPavan,
-                          onToggleUnit: () {
+                          onUnitChanged: (isPavan) {
                             setState(() {
-                              _isPavan = !_isPavan;
+                              _isPavan = isPavan;
                             });
                           },
                         ),

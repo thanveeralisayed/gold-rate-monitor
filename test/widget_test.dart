@@ -26,9 +26,9 @@ void main() {
           GoldHeroCard(
             summary: summary,
             isPavan: isPavan,
-            onToggleUnit: () {
+            onUnitChanged: (val) {
               setState(() {
-                isPavan = !isPavan;
+                isPavan = val;
               });
             },
           ),
