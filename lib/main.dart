@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'models/gold_rate_model.dart';
+import 'services/background_service.dart';
 import 'services/gold_scraper_service.dart';
+import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/gold_header.dart';
 import 'widgets/gold_hero_card.dart';
@@ -8,8 +10,15 @@ import 'widgets/gold_trend_chart.dart';
 import 'widgets/daily_history_list.dart';
 import 'widgets/gold_calculator_sheet.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize notifications and periodic background monitoring
+  final notifications = NotificationService();
+  await notifications.init();
+  await notifications.requestPermission();
+  await BackgroundService.initialize();
+
   runApp(const GoldRateApp());
 }
 
@@ -81,6 +90,33 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _triggerTestNotification() async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+
+    await BackgroundService.checkNow(forceNotify: true);
+
+    messenger.showSnackBar(
+      SnackBar(
+        backgroundColor: AppTheme.surfaceElevated,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        content: const Row(
+          children: [
+            Icon(Icons.notifications_active, color: AppTheme.goldAccent, size: 20),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Notification sent! Periodic background checks are active.',
+                style: TextStyle(color: Colors.white, fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final summary = _summary;
@@ -116,6 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         isLoading: _isLoading,
                         onRefresh: _loadGoldRates,
                         onOpenCalculator: _openCalculator,
+                        onTestNotification: _triggerTestNotification,
                       ),
                       const SizedBox(height: 18),
 
@@ -129,6 +166,76 @@ class _HomeScreenState extends State<HomeScreen> {
                               _isPavan = !_isPavan;
                             });
                           },
+                        ),
+                        const SizedBox(height: 18),
+
+                        // Notification Status Banner
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF1E283D), Color(0xFF131B2B)],
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppTheme.goldPrimary.withValues(alpha: 0.2)),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.goldPrimary.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.notifications_active_rounded,
+                                  color: AppTheme.goldAccent,
+                                  size: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Rate Update Notifications Active',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Background worker checks for price drops & updates',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.textSecondary.withValues(alpha: 0.8),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: _triggerTestNotification,
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  backgroundColor: AppTheme.surfaceElevated,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Test',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.goldAccent,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 18),
 

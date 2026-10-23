@@ -56,17 +56,17 @@ class _GoldCalculatorSheetState extends State<GoldCalculatorSheet> {
     final gstAmount = _includeGst ? (subtotal * 0.03) : 0.0;
     final grandTotal = subtotal + gstAmount;
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
+    return Material(
+      color: AppTheme.surface,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -191,23 +191,42 @@ class _GoldCalculatorSheetState extends State<GoldCalculatorSheet> {
             ),
 
             // GST Switch
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text(
-                'Include 3% GST',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Include 3% GST',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Standard government jewellery tax',
+                          style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: _includeGst,
+                    activeTrackColor: AppTheme.goldPrimary,
+                    activeThumbColor: Colors.black,
+                    onChanged: (val) {
+                      setState(() {
+                        _includeGst = val;
+                      });
+                    },
+                  ),
+                ],
               ),
-              subtitle: const Text(
-                'Standard government jewellery tax',
-                style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
-              ),
-              value: _includeGst,
-              activeThumbColor: AppTheme.goldPrimary,
-              onChanged: (val) {
-                setState(() {
-                  _includeGst = val;
-                });
-              },
             ),
 
             const SizedBox(height: 16),
@@ -272,7 +291,8 @@ class _GoldCalculatorSheetState extends State<GoldCalculatorSheet> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildPresetChip(String label, double grams) {

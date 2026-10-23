@@ -5,12 +5,14 @@ class GoldHeader extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onRefresh;
   final VoidCallback onOpenCalculator;
+  final VoidCallback onTestNotification;
 
   const GoldHeader({
     super.key,
     required this.isLoading,
     required this.onRefresh,
     required this.onOpenCalculator,
+    required this.onTestNotification,
   });
 
   @override
@@ -22,22 +24,46 @@ class GoldHeader extends StatelessWidget {
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(9),
+              width: 42,
+              height: 42,
               decoration: BoxDecoration(
-                gradient: AppTheme.goldGradient,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.goldPrimary.withValues(alpha: 0.3),
+                    color: AppTheme.goldPrimary.withValues(alpha: 0.35),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.monetization_on_rounded,
-                color: Colors.black,
-                size: 22,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  'assets/icon/app_icon.png',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      decoration: const BoxDecoration(
+                        gradient: AppTheme.goldGradient,
+                      ),
+                      alignment: Alignment.center,
+                      child: Container(
+                        width: 26,
+                        height: 26,
+                        decoration: const BoxDecoration(
+                          color: Colors.black,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.currency_rupee_rounded,
+                          color: AppTheme.goldLight,
+                          size: 16,
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -79,11 +105,21 @@ class GoldHeader extends StatelessWidget {
           ],
         ),
 
-        // Actions: Calculator & Refresh
+        // Actions: Bell Alert, Calculator, Refresh
         Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.calculate_outlined, color: AppTheme.goldAccent),
+              icon: const Icon(Icons.notifications_active_outlined, color: AppTheme.goldAccent, size: 20),
+              tooltip: 'Test Rate Alert Notification',
+              style: IconButton.styleFrom(
+                backgroundColor: AppTheme.surfaceElevated,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: onTestNotification,
+            ),
+            const SizedBox(width: 6),
+            IconButton(
+              icon: const Icon(Icons.calculate_outlined, color: AppTheme.textPrimary, size: 20),
               tooltip: 'Jewellery Price Calculator',
               style: IconButton.styleFrom(
                 backgroundColor: AppTheme.surfaceElevated,
@@ -91,7 +127,7 @@ class GoldHeader extends StatelessWidget {
               ),
               onPressed: onOpenCalculator,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             IconButton(
               icon: isLoading
                   ? const SizedBox(
@@ -102,7 +138,7 @@ class GoldHeader extends StatelessWidget {
                         color: AppTheme.goldPrimary,
                       ),
                     )
-                  : const Icon(Icons.refresh_rounded, color: AppTheme.textPrimary),
+                  : const Icon(Icons.refresh_rounded, color: AppTheme.textPrimary, size: 20),
               tooltip: 'Refresh Rates',
               style: IconButton.styleFrom(
                 backgroundColor: AppTheme.surfaceElevated,
