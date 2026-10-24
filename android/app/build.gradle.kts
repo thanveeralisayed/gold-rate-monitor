@@ -4,8 +4,13 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Automatically apply Google Services plugin when google-services.json is provided
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
-    namespace = "com.example.gold_rate_monitor"
+    namespace = "com.ker.goldratemonitor"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -16,8 +21,8 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.gold_rate_monitor"
+        // Application ID registered for Kerala Gold Rate Monitor
+        applicationId = "com.ker.goldratemonitor"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

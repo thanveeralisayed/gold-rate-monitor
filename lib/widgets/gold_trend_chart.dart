@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../models/gold_rate_model.dart';
+import '../services/analytics_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
 
@@ -334,6 +335,9 @@ class _GoldTrendChartState extends State<GoldTrendChart> {
     final isSelected = _selectedPeriod == period;
     return GestureDetector(
       onTap: () {
+        if (_selectedPeriod != period) {
+          AnalyticsService.logChartPeriodChange(period: text);
+        }
         setState(() {
           _selectedPeriod = period;
         });

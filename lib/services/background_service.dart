@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
+import 'analytics_service.dart';
 import 'gold_scraper_service.dart';
 import 'notification_service.dart';
 
@@ -123,6 +124,13 @@ class BackgroundService {
       await prefs.setInt('last_saved_pavan_price', currentPrice);
       await prefs.setString('last_saved_rate_date', currentDate);
       await prefs.setString('last_check_timestamp', DateTime.now().toIso8601String());
+
+      AnalyticsService.logBackgroundRateCheck(
+        rateChanged: shouldNotify,
+        newPrice: currentPrice,
+        oldPrice: lastPrice > 0 ? lastPrice : null,
+        diff: lastPrice > 0 ? currentPrice - lastPrice : null,
+      );
 
       return true;
     } catch (e) {

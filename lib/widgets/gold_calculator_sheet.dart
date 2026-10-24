@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/analytics_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
 
@@ -24,12 +25,29 @@ class _GoldCalculatorSheetState extends State<GoldCalculatorSheet> {
   void initState() {
     super.initState();
     _weightController = TextEditingController(text: '8');
+    AnalyticsService.logScreenView(screenName: 'GoldCalculatorSheet');
   }
 
   @override
   void dispose() {
+    _logCalculation();
     _weightController.dispose();
     super.dispose();
+  }
+
+  void _logCalculation() {
+    final basePrice = _weightInGrams * widget.currentGramRate;
+    final makingChargeAmount = (basePrice * _makingChargePercent) / 100.0;
+    final subtotal = basePrice + makingChargeAmount;
+    final gstAmount = _includeGst ? (subtotal * 0.03) : 0.0;
+    final grandTotal = subtotal + gstAmount;
+
+    AnalyticsService.logCalculatorCalculation(
+      weightInGrams: _weightInGrams,
+      makingChargePercent: _makingChargePercent,
+      includeGst: _includeGst,
+      grandTotal: grandTotal,
+    );
   }
 
   void _onWeightChanged(String val) {

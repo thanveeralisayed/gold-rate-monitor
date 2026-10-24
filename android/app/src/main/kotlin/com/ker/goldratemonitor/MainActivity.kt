@@ -1,4 +1,4 @@
-package com.example.gold_rate_monitor
+package com.ker.goldratemonitor
 
 import io.flutter.embedding.android.FlutterActivity
 

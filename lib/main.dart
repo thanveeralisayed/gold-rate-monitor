@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'models/gold_rate_model.dart';
+import 'services/analytics_service.dart';
 import 'services/background_service.dart';
 import 'services/gold_scraper_service.dart';
 import 'services/notification_service.dart';
@@ -19,6 +20,9 @@ void main() async {
   await notifications.requestPermission();
   await BackgroundService.initialize();
 
+  // Initialize Firebase Analytics with safe fallback
+  await AnalyticsService.initialize();
+
   runApp(const GoldRateApp());
 }
 
@@ -31,6 +35,9 @@ class GoldRateApp extends StatelessWidget {
       title: 'Kerala Gold Rate Monitor',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
+      navigatorObservers: [
+        if (AnalyticsService.observer != null) AnalyticsService.observer!,
+      ],
       home: const HomeScreen(),
     );
   }
@@ -52,16 +59,29 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadGoldRates();
+    AnalyticsService.logScreenView(screenName: 'HomeScreen');
+    _loadGoldRates(isManual: false);
   }
 
-  Future<void> _loadGoldRates() async {
+  Future<void> _loadGoldRates({bool isManual = false}) async {
     setState(() {
       _isLoading = true;
     });
 
+    final stopwatch = Stopwatch()..start();
     try {
       final data = await _scraperService.fetchGoldRates();
+      stopwatch.stop();
+
+      AnalyticsService.logRateRefresh(
+        isManual: isManual,
+        success: true,
+        pavanPrice: data.latestEntry.pavanPrice,
+        gramPrice: data.latestEntry.gramPrice,
+        trend: data.trend,
+        durationMs: stopwatch.elapsedMilliseconds,
+      );
+
       if (mounted) {
         setState(() {
           _summary = data;
@@ -69,9 +89,21 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } catch (e) {
+      stopwatch.stop();
+      final fallback = GoldScraperService.getFallbackData();
+
+      AnalyticsService.logRateRefresh(
+        isManual: isManual,
+        success: false,
+        pavanPrice: fallback.latestEntry.pavanPrice,
+        gramPrice: fallback.latestEntry.gramPrice,
+        trend: fallback.trend,
+        durationMs: stopwatch.elapsedMilliseconds,
+      );
+
       if (mounted) {
         setState(() {
-          _summary = GoldScraperService.getFallbackData();
+          _summary = fallback;
           _isLoading = false;
         });
       }
@@ -80,6 +112,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _openCalculator() {
     if (_summary == null) return;
+    AnalyticsService.logCalculatorOpen(
+      currentGramRate: _summary!.latestEntry.gramPrice,
+    );
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -91,6 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _triggerTestNotification() async {
+    AnalyticsService.logTestNotificationTriggered();
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
 
@@ -138,7 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               )
             : RefreshIndicator(
-                onRefresh: _loadGoldRates,
+                onRefresh: () => _loadGoldRates(isManual: true),
                 color: AppTheme.goldPrimary,
                 backgroundColor: AppTheme.surfaceElevated,
                 child: SingleChildScrollView(
@@ -150,7 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       // Header
                       GoldHeader(
                         isLoading: _isLoading,
-                        onRefresh: _loadGoldRates,
+                        onRefresh: () => _loadGoldRates(isManual: true),
                         onOpenCalculator: _openCalculator,
                         onTestNotification: _triggerTestNotification,
                       ),
@@ -162,6 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           summary: summary,
                           isPavan: _isPavan,
                           onUnitChanged: (isPavan) {
+                            AnalyticsService.logRateUnitToggle(isPavan: isPavan);
                             setState(() {
                               _isPavan = isPavan;
                             });
