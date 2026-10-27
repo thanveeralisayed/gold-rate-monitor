@@ -1,6 +1,6 @@
-# gold_rate_monitor
+# Gold Rate Monitor
 
-A new Flutter project.
+A real-time Kerala 22K (916) Gold Price Tracker and jewellery estimator built with Flutter.
 
 ## Getting Started
 

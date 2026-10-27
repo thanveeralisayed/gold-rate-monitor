@@ -1,10 +1,10 @@
 {
-    "name": "gold_rate_monitor",
-    "short_name": "gold_rate_monitor",
+    "name": "Gold Rate Monitor",
+    "short_name": "Gold Rate Monitor",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#090D16",
-    "theme_color": "#EAB308",
+    "theme_color": "#090D16",
     "description": "A new Flutter project.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,

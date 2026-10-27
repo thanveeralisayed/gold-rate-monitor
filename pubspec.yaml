@@ -74,11 +74,17 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/icon/app_icon.png"
   min_sdk_android: 21
+  adaptive_icon_background: "#090D16"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  adaptive_icon_monochrome: "assets/icon/app_icon_monochrome.png"
   web:
     generate: true
     image_path: "assets/icon/app_icon.png"
     background_color: "#090D16"
-    theme_color: "#EAB308"
+    theme_color: "#090D16"
+  windows:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -1,26 +1,42 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Brand luxury color palette
+  // Brand luxury color palette (Stitch Design System)
   static const Color background = Color(0xFF090D16);
-  static const Color surface = Color(0xFF111827);
+  static const Color surface = Color(0xFF0F131C);
   static const Color surfaceElevated = Color(0xFF1E293B);
   static const Color surfaceLight = Color(0xFF334155);
 
+  // Surface container tiers
+  static const Color surfaceContainerLowest = Color(0xFF0A0E17);
+  static const Color surfaceContainerLow = Color(0xFF181B25);
+  static const Color surfaceContainer = Color(0xFF1C1F29);
+  static const Color surfaceContainerHigh = Color(0xFF262A34);
+  static const Color surfaceContainerHighest = Color(0xFF31353F);
+  static const Color surfaceBorder = Color(0xFF1F293D);
+
+  // Precious Gold Accents
   static const Color goldPrimary = Color(0xFFEAB308);
   static const Color goldLight = Color(0xFFFDE047);
   static const Color goldDark = Color(0xFFCA8A04);
   static const Color goldAccent = Color(0xFFFACC15);
 
+  // Financial Dynamics (Emerald Gain & Ruby Drop)
   static const Color greenRate = Color(0xFF10B981);
+  static const Color greenSecondary = Color(0xFF4EDEA3);
   static const Color greenBackground = Color(0x1F10B981);
+  static const Color greenContainer = Color(0xFF003824);
 
   static const Color redRate = Color(0xFFF43F5E);
+  static const Color redLight = Color(0xFFFFB4AB);
   static const Color redBackground = Color(0x1FF43F5E);
+  static const Color redContainer = Color(0xFF67001B);
 
+  // Typography Tones
   static const Color textPrimary = Color(0xFFF8FAFC);
   static const Color textSecondary = Color(0xFF94A3B8);
   static const Color textMuted = Color(0xFF64748B);
+  static const Color onSurface = Color(0xFFDFE2EF);
 
   static const LinearGradient goldGradient = LinearGradient(
     colors: [Color(0xFFFFF099), Color(0xFFF5BA42), Color(0xFFD4931A)],
