@@ -1,13 +1,112 @@
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html_parser;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/gold_rate_model.dart';
 
 class GoldScraperService {
   static const String directUrl = 'https://www.keralagold.com/daily-gold-prices.htm';
   static const String corsProxyUrl = 'https://api.allorigins.win/raw?url=https://www.keralagold.com/daily-gold-prices.htm';
 
-  Future<GoldMonthSummary> fetchGoldRates() async {
+  static const String prefKeyCachedHtml = 'cached_gold_html';
+  static const String prefKeyCachedTimestamp = 'cached_gold_timestamp';
+  static const String prefKeyLastMorningScrape = 'last_scraped_morning_date';
+  static const String prefKeyLastEveningScrape = 'last_scraped_evening_date';
+
+  static String formatDateKey(DateTime dt) {
+    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+  }
+
+  /// Evaluates whether an automated scrape is warranted based on Kerala market update windows:
+  /// - Morning window: 10:00 AM onwards (scrapes once per day after 10 AM)
+  /// - Evening window: 5:00 PM (17:00) onwards (scrapes once per day after 5 PM)
+  /// - Before 10:00 AM: no auto-scrape if cached data exists (rates haven't changed yet)
+  Future<bool> shouldAutoScrape({DateTime? testNow}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final cachedHtml = prefs.getString(prefKeyCachedHtml);
+    if (cachedHtml == null || cachedHtml.isEmpty) {
+      // No cached data at all; initial scrape needed
+      return true;
+    }
+
+    final now = testNow ?? DateTime.now();
+    final todayStr = formatDateKey(now);
+
+    final lastMorningScrape = prefs.getString(prefKeyLastMorningScrape) ?? '';
+    final lastEveningScrape = prefs.getString(prefKeyLastEveningScrape) ?? '';
+
+    if (now.hour >= 17) {
+      // Evening window (5:00 PM onwards): Needs to scrape once per day after 5 PM
+      return lastEveningScrape != todayStr;
+    } else if (now.hour >= 10) {
+      // Morning window (10:00 AM to 4:59 PM): Needs to scrape once per day after 10 AM
+      return lastMorningScrape != todayStr;
+    } else {
+      // Before 10:00 AM: Site has not updated today's rates yet.
+      // Use cached data; do not touch rate limits.
+      return false;
+    }
+  }
+
+  /// Records successful scrape to SharedPreferences and updates the session window marker
+  Future<void> recordSuccessfulScrape(String htmlContent, DateTime now) async {
+    final prefs = await SharedPreferences.getInstance();
+    final todayStr = formatDateKey(now);
+
+    await prefs.setString(prefKeyCachedHtml, htmlContent);
+    await prefs.setString(prefKeyCachedTimestamp, now.toIso8601String());
+
+    if (now.hour >= 17) {
+      await prefs.setString(prefKeyLastEveningScrape, todayStr);
+      await prefs.setString(prefKeyLastMorningScrape, todayStr);
+    } else if (now.hour >= 10) {
+      await prefs.setString(prefKeyLastMorningScrape, todayStr);
+    }
+  }
+
+  /// Retrieves previously cached GoldMonthSummary if available, without hitting the network
+  Future<GoldMonthSummary?> getCachedRates() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedHtml = prefs.getString(prefKeyCachedHtml);
+      final cachedTimestampStr = prefs.getString(prefKeyCachedTimestamp);
+      if (cachedHtml != null && cachedHtml.isNotEmpty) {
+        final timestamp = cachedTimestampStr != null
+            ? DateTime.tryParse(cachedTimestampStr) ?? DateTime.now()
+            : DateTime.now();
+        final summary = parseHtml(cachedHtml, lastUpdated: timestamp);
+        if (summary.entries.isNotEmpty) {
+          return summary;
+        }
+      }
+    } catch (e) {
+      debugPrint('[GoldScraperService] Error reading cached rates: $e');
+    }
+    return null;
+  }
+
+  /// Fetches gold rates from network or cache:
+  /// - If [isManual] or [forceScrape] is true, always scrapes from network immediately.
+  /// - Otherwise, checks [shouldAutoScrape]. If outside windows or already scraped today, returns cached rates.
+  Future<GoldMonthSummary> fetchGoldRates({
+    bool isManual = false,
+    bool forceScrape = false,
+    DateTime? testNow,
+  }) async {
+    final now = testNow ?? DateTime.now();
+
+    // If automated (not manual refresh and not forced), check window constraints
+    if (!isManual && !forceScrape) {
+      final needsAutoScrape = await shouldAutoScrape(testNow: now);
+      if (!needsAutoScrape) {
+        final cached = await getCachedRates();
+        if (cached != null) {
+          debugPrint('[GoldScraperService] ⚡ Serving cached rates. Outside scrape window or already scraped today.');
+          return cached;
+        }
+      }
+    }
+
     String? htmlContent;
 
     // In web browsers, CORS blocks direct cross-origin scraping, so we prioritize the proxy on web
@@ -32,13 +131,21 @@ class GoldScraperService {
 
     if (htmlContent != null && htmlContent.isNotEmpty) {
       try {
-        final parsed = parseHtml(htmlContent);
+        final parsed = parseHtml(htmlContent, lastUpdated: now);
         if (parsed.entries.isNotEmpty) {
+          await recordSuccessfulScrape(htmlContent, now);
           return parsed;
         }
       } catch (e) {
         debugPrint('Error parsing HTML: $e');
       }
+    }
+
+    // If network failed, serve previously cached rates if available
+    final cached = await getCachedRates();
+    if (cached != null) {
+      debugPrint('[GoldScraperService] ⚠️ Network request failed; serving cached rates.');
+      return cached;
     }
 
     // Fallback data if completely offline or site is unreachable
@@ -60,7 +167,7 @@ class GoldScraperService {
     throw Exception('Failed with status code: ${response.statusCode}');
   }
 
-  GoldMonthSummary parseHtml(String htmlContent) {
+  GoldMonthSummary parseHtml(String htmlContent, {DateTime? lastUpdated}) {
     final doc = html_parser.parse(htmlContent);
 
     // 1. Parse Month & Year from Title or Headers
@@ -250,7 +357,7 @@ class GoldScraperService {
       entries: entries,
       overallMonthChangePavan: overallMonthChange,
       overallMonthChangePercent: overallMonthPercent,
-      lastUpdated: DateTime.now(),
+      lastUpdated: lastUpdated ?? DateTime.now(),
     );
   }
 

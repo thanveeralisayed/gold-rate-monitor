@@ -5,11 +5,10 @@ import 'services/background_service.dart';
 import 'services/gold_scraper_service.dart';
 import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
-import 'widgets/gold_header.dart';
-import 'widgets/gold_hero_card.dart';
-import 'widgets/gold_trend_chart.dart';
-import 'widgets/daily_history_list.dart';
-import 'widgets/gold_calculator_sheet.dart';
+import 'widgets/rates_view.dart';
+import 'widgets/history_view.dart';
+import 'widgets/calculator_view.dart';
+import 'widgets/alerts_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,7 +31,7 @@ class GoldRateApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Kerala Gold Rate Monitor',
+      title: 'Gold Rate Monitor',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       navigatorObservers: [
@@ -55,22 +54,42 @@ class _HomeScreenState extends State<HomeScreen> {
   GoldMonthSummary? _summary;
   bool _isLoading = true;
   bool _isPavan = true; // true: 1 Pavan (8g), false: 1 Gram
+  int _currentTabIndex = 0; // 0: Rates, 1: Ledger, 2: Calculator, 3: Alerts
 
   @override
   void initState() {
     super.initState();
     AnalyticsService.logScreenView(screenName: 'HomeScreen');
-    _loadGoldRates(isManual: false);
+    _initRates();
+  }
+
+  Future<void> _initRates() async {
+    // 1. Immediately render cached rates if available for zero-wait launch
+    final cached = await _scraperService.getCachedRates();
+    if (cached != null && mounted) {
+      setState(() {
+        _summary = cached;
+        _isLoading = false;
+      });
+    }
+
+    // 2. Check if a window scrape (after 10am or after 5pm) is needed
+    final needsAutoScrape = await _scraperService.shouldAutoScrape();
+    if (needsAutoScrape || _summary == null) {
+      await _loadGoldRates(isManual: false);
+    }
   }
 
   Future<void> _loadGoldRates({bool isManual = false}) async {
-    setState(() {
-      _isLoading = true;
-    });
+    if (_summary == null) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     final stopwatch = Stopwatch()..start();
     try {
-      final data = await _scraperService.fetchGoldRates();
+      final data = await _scraperService.fetchGoldRates(isManual: isManual);
       stopwatch.stop();
 
       AnalyticsService.logRateRefresh(
@@ -87,10 +106,36 @@ class _HomeScreenState extends State<HomeScreen> {
           _summary = data;
           _isLoading = false;
         });
+
+        if (isManual) {
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.hideCurrentSnackBar();
+          messenger.showSnackBar(
+            SnackBar(
+              backgroundColor: AppTheme.surfaceElevated,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              content: const Row(
+                children: [
+                  Icon(Icons.check_circle_outline, color: AppTheme.greenRate, size: 20),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Live rates updated from KeralaGold.com',
+                      style: TextStyle(color: Colors.white, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
       }
     } catch (e) {
       stopwatch.stop();
-      final fallback = GoldScraperService.getFallbackData();
+      final cached = await _scraperService.getCachedRates();
+      final fallback = cached ?? GoldScraperService.getFallbackData();
 
       AnalyticsService.logRateRefresh(
         isManual: isManual,
@@ -110,19 +155,20 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _onTabSelected(int index) {
+    if (_currentTabIndex == index) return;
+    setState(() {
+      _currentTabIndex = index;
+    });
+
+    const tabNames = ['RatesView', 'HistoryView', 'CalculatorView', 'AlertsView'];
+    if (index >= 0 && index < tabNames.length) {
+      AnalyticsService.logScreenView(screenName: tabNames[index]);
+    }
+  }
+
   void _openCalculator() {
-    if (_summary == null) return;
-    AnalyticsService.logCalculatorOpen(
-      currentGramRate: _summary!.latestEntry.gramPrice,
-    );
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => GoldCalculatorSheet(
-        currentGramRate: _summary!.latestEntry.gramPrice,
-      ),
-    );
+    _onTabSelected(2);
   }
 
   Future<void> _triggerTestNotification() async {
@@ -158,6 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final summary = _summary;
 
     return Scaffold(
+      backgroundColor: AppTheme.background,
       body: SafeArea(
         child: summary == null && _isLoading
             ? const Center(
@@ -173,188 +220,98 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               )
-            : RefreshIndicator(
-                onRefresh: () => _loadGoldRates(isManual: true),
-                color: AppTheme.goldPrimary,
-                backgroundColor: AppTheme.surfaceElevated,
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Header
-                      GoldHeader(
-                        isLoading: _isLoading,
-                        onRefresh: () => _loadGoldRates(isManual: true),
-                        onOpenCalculator: _openCalculator,
-                        onTestNotification: _triggerTestNotification,
-                      ),
-                      const SizedBox(height: 18),
-
-                      if (summary != null) ...[
-                        // Hero Card with today's rate & drop/gain
-                        GoldHeroCard(
-                          summary: summary,
-                          isPavan: _isPavan,
-                          onUnitChanged: (isPavan) {
-                            AnalyticsService.logRateUnitToggle(isPavan: isPavan);
-                            setState(() {
-                              _isPavan = isPavan;
-                            });
-                          },
-                        ),
-                        const SizedBox(height: 18),
-
-                        // Notification Status Banner
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF1E283D), Color(0xFF131B2B)],
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppTheme.goldPrimary.withValues(alpha: 0.2)),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.goldPrimary.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Icon(
-                                  Icons.notifications_active_rounded,
-                                  color: AppTheme.goldAccent,
-                                  size: 18,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Rate Update Notifications Active',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppTheme.textPrimary,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Background worker checks for price drops & updates',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: AppTheme.textSecondary.withValues(alpha: 0.8),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: _triggerTestNotification,
-                                style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  backgroundColor: AppTheme.surfaceElevated,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Test',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppTheme.goldAccent,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-
-                        // Advanced Interactive Trend Graph
-                        GoldTrendChart(
-                          entries: summary.entries,
-                          isPavan: _isPavan,
-                        ),
-                        const SizedBox(height: 18),
-
-                        // Quick info callout
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: AppTheme.surfaceElevated.withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFF1F293D)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.info_outline_rounded, size: 20, color: AppTheme.goldAccent),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  'Standard 1 Pavan = 8 Grams of 22 Karat (916) Gold. Rates reflect daily Kerala bullion market quotes.',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    height: 1.4,
-                                    color: AppTheme.textSecondary.withValues(alpha: 0.9),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-
-                        // Day-by-Day Historical List
-                        DailyHistoryList(
-                          entriesNewestFirst: summary.entriesNewestFirst,
-                          isPavan: _isPavan,
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Footer
-                        Center(
-                          child: Column(
-                            children: [
-                              Text(
-                                'Data parsed from KeralaGold.com • Daily Prices',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppTheme.textMuted.withValues(alpha: 0.8),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Last updated: ${summary.lastUpdated.hour.toString().padLeft(2, '0')}:${summary.lastUpdated.minute.toString().padLeft(2, '0')} • Auto-synchronized',
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: AppTheme.textMuted,
-                                ),
-                              ),
-                              const SizedBox(height: 40),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
+            : IndexedStack(
+                index: _currentTabIndex,
+                children: [
+                  // Tab 0: Rates
+                  RatesView(
+                    summary: summary ?? GoldScraperService.getFallbackData(),
+                    isPavan: _isPavan,
+                    isLoading: _isLoading,
+                    onUnitChanged: (isPavan) {
+                      AnalyticsService.logRateUnitToggle(isPavan: isPavan);
+                      setState(() {
+                        _isPavan = isPavan;
+                      });
+                    },
+                    onRefresh: () => _loadGoldRates(isManual: true),
+                    onOpenCalculator: _openCalculator,
+                    onTestNotification: _triggerTestNotification,
                   ),
-                ),
+
+                  // Tab 1: History / Ledger
+                  HistoryView(
+                    summary: summary ?? GoldScraperService.getFallbackData(),
+                    isPavan: _isPavan,
+                    onUnitChanged: (isPavan) {
+                      AnalyticsService.logRateUnitToggle(isPavan: isPavan);
+                      setState(() {
+                        _isPavan = isPavan;
+                      });
+                    },
+                    onRefresh: () => _loadGoldRates(isManual: true),
+                  ),
+
+                  // Tab 2: Jewellery Cost Calculator
+                  CalculatorView(
+                    currentGramRate: (summary ?? GoldScraperService.getFallbackData()).latestEntry.gramPrice,
+                  ),
+
+                  // Tab 3: Alerts & Background Sync Schedule
+                  AlertsView(
+                    onTriggerTestNotification: _triggerTestNotification,
+                  ),
+                ],
               ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openCalculator,
-        backgroundColor: AppTheme.goldPrimary,
-        foregroundColor: Colors.black,
-        elevation: 4,
-        icon: const Icon(Icons.calculate_rounded),
-        label: const Text(
-          'Estimate Jewellery',
-          style: TextStyle(fontWeight: FontWeight.w700),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: AppTheme.surfaceContainerLowest,
+          border: Border(
+            top: BorderSide(color: AppTheme.surfaceBorder, width: 1),
+          ),
+        ),
+        child: Theme(
+          data: Theme.of(context).copyWith(
+            canvasColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+          ),
+          child: BottomNavigationBar(
+            currentIndex: _currentTabIndex,
+            onTap: _onTabSelected,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            type: BottomNavigationBarType.fixed,
+            selectedItemColor: AppTheme.goldLight,
+            unselectedItemColor: AppTheme.textMuted,
+            selectedFontSize: 11,
+            unselectedFontSize: 11,
+            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.trending_up_rounded),
+                activeIcon: Icon(Icons.trending_up_rounded, color: AppTheme.goldLight),
+                label: 'Rates',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.history_rounded),
+                activeIcon: Icon(Icons.history_rounded, color: AppTheme.goldLight),
+                label: 'Ledger',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.calculate_rounded),
+                activeIcon: Icon(Icons.calculate_rounded, color: AppTheme.goldLight),
+                label: 'Calculator',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.notifications_active_rounded),
+                activeIcon: Icon(Icons.notifications_active_rounded, color: AppTheme.goldLight),
+                label: 'Alerts',
+              ),
+            ],
+          ),
         ),
       ),
     );

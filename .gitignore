@@ -50,3 +50,14 @@ app.*.map.json
 # Firebase credentials (keep private)
 **/android/app/google-services.json
 **/ios/Runner/GoogleService-Info.plist
+
+# Stitch UI designs
+stitch_gold_rate_monitor_ui/
+
+# Product Requirements Document
+PRD.md
+prd.md
+
+# Release APK outputs
+*.apk
+release/

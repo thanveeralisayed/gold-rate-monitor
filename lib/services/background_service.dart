@@ -15,7 +15,16 @@ void callbackDispatcher() {
     WidgetsFlutterBinding.ensureInitialized();
     try {
       final scraper = GoldScraperService();
-      final summary = await scraper.fetchGoldRates();
+
+      // Check if scheduled window requires a scrape (once after 10am and once after 5pm)
+      final shouldScrape = await scraper.shouldAutoScrape();
+      if (!shouldScrape) {
+        debugPrint('[BackgroundService] ⏳ Outside scheduled windows or already scraped for current session. Skipping network scrape.');
+        return true;
+      }
+
+      // Perform live scrape for scheduled window
+      final summary = await scraper.fetchGoldRates(forceScrape: true);
       final prefs = await SharedPreferences.getInstance();
 
       final lastPrice = prefs.getInt('last_saved_pavan_price') ?? 0;
